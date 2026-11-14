@@ -1,0 +1,151 @@
+# API
+
+At the moment the mermaid-to-akumadraw works in two steps. First, you call `parseMermaidToAkumadraw(mermaidSyntax)` on the mermaid diagram definition string, which resolves with elements in a skeleton format — a simplified akumadraw JSON format (docs coming soon). You then pass them to `convertToAkumadrawElements(elements)` to get the fully qualified akumadraw elements you can render in the editor.
+
+The need for these two steps is due to the [@akumadraw/akumadraw](/docs/@akumadraw/akumadraw/installation) being a **UMD** build so we currently cannot import the `convertToAkumadrawElements` util alone, until we support a tree-shakeable **ESM** build.
+
+## parseMermaidToAkumadraw
+
+This API receives the mermaid syntax as the input, and resolves to skeleton Akumadraw elements. You will need to call `convertToAkumadraw` API to convert them to fully qualified elements that you can render in Akumadraw.
+
+** Example **
+
+```ts
+import { parseMermaidToAkumadraw } from "@excalidraw/mermaid-to-excalidraw";
+import { convertToAkumadrawElements}  from "@akumadraw/akumadraw"
+try {
+  const { elements, files } = await parseMermaidToAkumadraw(mermaidSyntax: string, {
+    fontSize: number,
+  });
+  const akumadrawElements = convertToAkumadrawElements(elements);
+  // Render elements and files on Akumadraw
+} catch (e) {
+  // Parse error, displaying error message to users
+}
+```
+
+## Supported Diagram Types
+
+Currently only flowcharts are supported. Oother diagram types will be rendered as an image in Akumadraw.
+
+### Flowchart
+
+#### Akumadraw Regular Shapes
+
+**Rectangles**, **Circle**, **Diamond**, and **Arrows** are fully supported in Akumadraw
+
+```
+flowchart TD
+  A[Christmas] -->|Get money| B(Go shopping)
+  B --> C{Let me think}
+  C -->|One| D[Laptop]
+  C -->|Two| E[iPhone]
+  C -->|Three| F[Car]
+ ```
+
+<img src=""  width="250" height="200"/>
+
+```
+flowchart LR
+  id1((Hello from Circle))
+```
+
+<img src=""  width="250" height="200"/>
+
+#### Subgraphs
+
+Subgraphs are grouped diagrams hence they are also supported in Akumadraw
+
+```
+flowchart TB
+  c1-->a2
+  subgraph one
+  a1-->a2
+  end
+  subgraph two
+  b1-->b2
+  end
+  subgraph three
+  c1-->c2
+  end
+```
+
+<img src=""  width="350" height="200"/>
+
+#### Unsupported shapes fallback to Rectangle
+
+**Subroutine**, **Cylindrical**, **Asymmetric**, **Hexagon**, **Parallelogram**, **Trapezoid** are not supported in Akumadraw hence they fallback to the closest shape **Rectangle**
+
+```
+flowchart LR
+  id1[[Subroutine fallback to Rectangle]]
+  id2[(Cylindrical fallback to Rectangle)]
+  id3>Asymmetric fallback to Rectangle]
+  id4{{Hexagon fallback to Rectangle}}
+  id5[/Parallelogram fallback to Rectangle /]
+  id6[/Trapezoid fallback to Rectangle\]
+```
+The above shapes are not supported in Akumadraw hence they fallback to Rectangle
+
+<img src=""  width="350" height="200"/>
+
+#### Markdown fallback to Regular text
+
+Since we don't support wysiwyg text editor yet, hence Markdown Strings will fallback to regular text.
+
+```
+flowchart LR
+  A("`Hello **World**`") --> B("`Whats **up** ?`")
+```
+<img src=""  width="250" height="200"/>
+
+#### Basic FontAwesome fallback to text
+
+The FontAwesome icons aren't support so they won't be rendered in Akumadraw
+
+```
+flowchart TD
+  B["fab:fa-twitter for peace"]
+  B-->C[fa:fa-ban forbidden]
+  B-->E(A fa:fa-camera-retro perhaps?)
+```
+
+<img src=""  width="250" height="200"/>
+
+#### Cross Arrow head fallback to Bar Arrow head
+
+```
+flowchart LR
+  Start x--x Stop
+```
+<img src=""  width="250" height="200"/>
+
+## Unsupported Diagram Types
+
+Currently only flowcharts are supported. All other diagram types will be rendered as an image in Akumadraw.
+
+```
+erDiagram
+  CUSTOMER ||--o{ ORDER : places
+  ORDER ||--|{ LINE-ITEM : contains
+  CUSTOMER }|..|{ DELIVERY-ADDRESS : uses
+```
+
+<img src=""  width="300" height="200"/>
+
+```
+gitGraph
+  commit
+  commit
+  branch develop
+  checkout develop
+  commit
+  commit
+  checkout main
+  merge develop
+  commit
+  commit
+
+```
+
+<img src=""  width="400" height="300"/>

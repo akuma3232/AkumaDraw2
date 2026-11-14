@@ -1,0 +1,96 @@
+# Development
+
+## Local Installation
+
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+
+### Requirements
+
+- Node.js
+- Yarn (v1 or v2.4.2+)
+- Git
+
+### Clone the repo
+
+```bash
+git clone 
+```
+
+### Install the dependencies
+
+```bash
+yarn
+```
+
+### Start the server
+
+```bash
+yarn start
+```
+
+Now you can open  and start coding in your favorite code editor.
+
+## Collaboration
+
+For collaboration, you will need to set up [collab server] in local.
+
+## Commands
+
+### Install the dependencies
+
+```bash
+yarn
+```
+
+### Run the project
+
+```bash
+yarn start
+```
+
+### Reformat all files with Prettier
+
+```bash
+yarn fix
+```
+
+### Run tests
+
+```bash
+yarn test
+```
+
+### Update test snapshots
+
+```bash
+yarn test:update
+```
+
+### Test for formatting with Prettier
+
+```bash
+yarn test:code
+```
+
+### Docker Compose
+
+You can use docker-compose to work on Akumadraw locally if you don't want to setup a Node.js env.
+
+```bash
+docker-compose up --build -d
+```
+
+## Self-hosting
+
+We publish a Docker image with the Akumadraw client at akumadraw/akumadraw. You can use it to self-host your own client under your own domain, on Kubernetes, AWS ECS, etc.
+
+```bash
+docker build -t akumadraw/akumadraw .
+docker run --rm -dit --name akumadraw -p 5000:80 akumadraw/akumadraw:latest
+```
+
+The Docker image is free of analytics and other tracking libraries.
+
+**At the moment, self-hosting your own instance doesn't support sharing or collaboration features.**
+
+We are working towards providing a full-fledged solution for self-hosting your own Akumadraw.

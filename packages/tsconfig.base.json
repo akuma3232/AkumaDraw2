@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "emitDeclarationOnly": true,
+    "paths": {
+      "@akumadraw/common": ["./common/src/index.ts"],
+      "@akumadraw/common/*": ["./common/src/*"],
+      "@akumadraw/element": ["./element/src/index.ts"],
+      "@akumadraw/element/*": ["./element/src/*"],
+      "@akumadraw/akumadraw": ["./akumadraw/index.tsx"],
+      "@akumadraw/akumadraw/*": ["./akumadraw/*"],
+      "@akumadraw/laser-pointer": ["./laser-pointer/src/index.ts"],
+      "@akumadraw/laser-pointer/*": ["./laser-pointer/src/*"],
+      "@akumadraw/math": ["./math/src/index.ts"],
+      "@akumadraw/math/*": ["./math/src/*"],
+      "@akumadraw/utils": ["./utils/src/index.ts"],
+      "@akumadraw/utils/*": ["./utils/src/*"],
+      "@akumadraw/fractional-indexing": ["./fractional-indexing/src/index.ts"],
+      "@akumadraw/fractional-indexing/*": ["./fractional-indexing/src/*"]
+    }
+  }
+}

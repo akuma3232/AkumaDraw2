@@ -1,0 +1,1010 @@
+import { nanoid } from "nanoid";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  Children,
+  cloneElement,
+} from "react";
+
+import type * as TAkumadraw from "@akumadraw/akumadraw";
+import type { ImportedLibraryData } from "@akumadraw/akumadraw/data/types";
+import type {
+  NonDeletedAkumadrawElement,
+  Theme,
+} from "@akumadraw/akumadraw/element/types";
+import type {
+  AppState,
+  BinaryFileData,
+  AkumadrawImperativeAPI,
+  AkumadrawInitialDataState,
+  Gesture,
+  LibraryItems,
+  PointerDownState as AkumadrawPointerDownState,
+} from "@akumadraw/akumadraw/types";
+
+import initialData from "../initialData";
+import {
+  resolvablePromise,
+  distance2d,
+  fileOpen,
+  withBatchedUpdates,
+  withBatchedUpdatesThrottled,
+} from "../utils";
+
+import CustomFooter from "./CustomFooter";
+import MobileFooter from "./MobileFooter";
+import ExampleSidebar from "./sidebar/ExampleSidebar";
+
+import "./ExampleApp.scss";
+
+import type { ResolvablePromise } from "../utils";
+
+type Comment = {
+  x: number;
+  y: number;
+  value: string;
+  id?: string;
+};
+
+type PointerDownState = {
+  x: number;
+  y: number;
+  hitElement: Comment;
+  onMove: any;
+  onUp: any;
+  hitElementOffsets: {
+    x: number;
+    y: number;
+  };
+};
+
+const COMMENT_ICON_DIMENSION = 32;
+const COMMENT_INPUT_HEIGHT = 50;
+const COMMENT_INPUT_WIDTH = 150;
+
+export interface AppProps {
+  appTitle: string;
+  useCustom: (api: AkumadrawImperativeAPI | null, customArgs?: any[]) => void;
+  customArgs?: any[];
+  children: React.ReactNode;
+  akumadrawLib: typeof TAkumadraw;
+}
+
+export default function ExampleApp({
+  appTitle,
+  useCustom,
+  customArgs,
+  children,
+  akumadrawLib,
+}: AppProps) {
+  const {
+    exportScene,
+    exportToClipboard,
+    useHandleLibrary,
+    MIME_TYPES,
+    sceneCoordsToViewportCoords,
+    viewportCoordsToSceneCoords,
+    restoreElements,
+    Sidebar,
+    Footer,
+    WelcomeScreen,
+    MainMenu,
+    LiveCollaborationTrigger,
+    convertToAkumadrawElements,
+    TTDDialog,
+    TTDDialogTrigger,
+    ROUNDNESS,
+    loadSceneOrLibraryFromBlob,
+  } = akumadrawLib;
+  const appRef = useRef<any>(null);
+  const [viewModeEnabled, setViewModeEnabled] = useState(false);
+  const [interactive, setInteractive] = useState(true);
+  const [interactiveLinks, setInteractiveLinks] = useState(false);
+  const [interactiveEmbeds, setInteractiveEmbeds] = useState(false);
+  const [interactiveNavigation, setInteractiveNavigation] = useState(false);
+  const [interactiveBrowserZoom, setInteractiveBrowserZoom] = useState(false);
+  const [ui, setUi] = useState(true);
+  const [zenModeEnabled, setZenModeEnabled] = useState(false);
+  const [gridModeEnabled, setGridModeEnabled] = useState(false);
+  const [renderScrollbars, setRenderScrollbars] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string>("");
+  const [canvasUrl, setCanvasUrl] = useState<string>("");
+  const [exportWithDarkMode, setExportWithDarkMode] = useState(false);
+  const [exportEmbedScene, setExportEmbedScene] = useState(false);
+  const exportConfig = {
+    theme: exportWithDarkMode ? "dark" : "light",
+    padding: 10,
+  } as const;
+  const [theme, setTheme] = useState<Theme>("light");
+  const [disableImageTool, setDisableImageTool] = useState(false);
+  const [isCollaborating, setIsCollaborating] = useState(false);
+  const [commentIcons, setCommentIcons] = useState<{ [id: string]: Comment }>(
+    {},
+  );
+  const [comment, setComment] = useState<Comment | null>(null);
+
+  const initialStatePromiseRef = useRef<{
+    promise: ResolvablePromise<AkumadrawInitialDataState | null>;
+  }>({ promise: null! });
+  if (!initialStatePromiseRef.current.promise) {
+    initialStatePromiseRef.current.promise =
+      resolvablePromise<AkumadrawInitialDataState | null>();
+  }
+
+  const [akumadrawAPI, setAkumadrawAPI] =
+    useState<AkumadrawImperativeAPI | null>(null);
+
+  useCustom(akumadrawAPI, customArgs);
+
+  useHandleLibrary({ akumadrawAPI });
+
+  useEffect(() => {
+    if (!akumadrawAPI) {
+      return;
+    }
+    const fetchData = async () => {
+      const res = await fetch("/images/rocket.jpeg");
+      const imageData = await res.blob();
+      const reader = new FileReader();
+      reader.readAsDataURL(imageData);
+
+      reader.onload = function () {
+        const imagesArray: BinaryFileData[] = [
+          {
+            id: "rocket" as BinaryFileData["id"],
+            dataURL: reader.result as BinaryFileData["dataURL"],
+            mimeType: MIME_TYPES.jpg,
+            created: 1644915140367,
+            lastRetrieved: 1644915140367,
+          },
+        ];
+
+        //@ts-ignore
+        initialStatePromiseRef.current.promise.resolve({
+          ...initialData,
+          elements: convertToAkumadrawElements(initialData.elements),
+        });
+        akumadrawAPI.addFiles(imagesArray);
+      };
+    };
+    fetchData();
+  }, [akumadrawAPI, convertToAkumadrawElements, MIME_TYPES]);
+
+  const renderAkumadraw = (children: React.ReactNode) => {
+    const Akumadraw: any = Children.toArray(children).find(
+      (child) =>
+        React.isValidElement(child) &&
+        typeof child.type !== "string" &&
+        //@ts-ignore
+        child.type.displayName === "Akumadraw",
+    );
+    if (!Akumadraw) {
+      return;
+    }
+    const newElement = cloneElement(
+      Akumadraw,
+      {
+        akumadrawAPI: (api: AkumadrawImperativeAPI) => setAkumadrawAPI(api),
+        initialData: initialStatePromiseRef.current.promise,
+        onChange: (elements: NonDeletedAkumadrawElement[], state: AppState) => {
+          console.info("Elements :", elements, "State : ", state);
+        },
+        onPointerUpdate: (payload: {
+          pointer: { x: number; y: number };
+          button: "down" | "up";
+          pointersMap: Gesture["pointers"];
+        }) => setPointerData(payload),
+        viewModeEnabled,
+        interaction: interactive
+          ? true
+          : {
+              enabled: {
+                links: interactiveLinks,
+                embeds: interactiveEmbeds,
+                navigation: interactiveNavigation,
+                browserZoom: interactiveBrowserZoom,
+              },
+            },
+        ui,
+        zenModeEnabled,
+        renderScrollbars,
+        gridModeEnabled,
+        theme,
+        name: "Custom name of drawing",
+        UIOptions: {
+          canvasActions: {
+            loadScene: false,
+          },
+          tools: { image: !disableImageTool },
+        },
+        renderTopRightUI,
+        onLinkOpen,
+        onPointerDown,
+        onScrollChange: rerenderCommentIcons,
+        validateEmbeddable: true,
+      },
+      <>
+        {akumadrawAPI && (
+          <Footer>
+            <CustomFooter
+              akumadrawAPI={akumadrawAPI}
+              akumadrawLib={akumadrawLib}
+            />
+          </Footer>
+        )}
+        <WelcomeScreen />
+        <Sidebar name="custom">
+          <Sidebar.Tabs>
+            <Sidebar.Header />
+            <Sidebar.Tab tab="one">Tab one!</Sidebar.Tab>
+            <Sidebar.Tab tab="two">Tab two!</Sidebar.Tab>
+            <Sidebar.TabTriggers>
+              <Sidebar.TabTrigger tab="one">One</Sidebar.TabTrigger>
+              <Sidebar.TabTrigger tab="two">Two</Sidebar.TabTrigger>
+            </Sidebar.TabTriggers>
+          </Sidebar.Tabs>
+        </Sidebar>
+        <Sidebar.Trigger
+          name="custom"
+          tab="one"
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: "20px",
+            zIndex: 9999999999999999,
+          }}
+        >
+          Toggle Custom Sidebar
+        </Sidebar.Trigger>
+        {renderMenu()}
+        {akumadrawAPI && (
+          <TTDDialogTrigger icon={<span>😀</span>}>
+            Text to diagram
+          </TTDDialogTrigger>
+        )}
+        <TTDDialog
+          onTextSubmit={async (_) => {
+            console.info("submit");
+            // sleep for 2s
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            throw new Error("error, go away now");
+            // return "dummy";
+          }}
+        />
+      </>,
+    );
+    return newElement;
+  };
+  const renderTopRightUI = (isMobile: boolean) => {
+    return (
+      <>
+        {!isMobile && (
+          <LiveCollaborationTrigger
+            isCollaborating={isCollaborating}
+            onSelect={() => {
+              window.alert("Collab dialog clicked");
+            }}
+          />
+        )}
+        <button
+          onClick={() => alert("This is an empty top right UI")}
+          style={{ height: "2.5rem" }}
+        >
+          Click me
+        </button>
+      </>
+    );
+  };
+
+  const loadSceneOrLibrary = async () => {
+    const file = await fileOpen({ description: "Akumadraw or library file" });
+    const contents = await loadSceneOrLibraryFromBlob(file, null, null);
+    if (contents.type === MIME_TYPES.akumadraw) {
+      akumadrawAPI?.updateScene(contents.data as any);
+    } else if (contents.type === MIME_TYPES.akumadrawlib) {
+      akumadrawAPI?.updateLibrary({
+        libraryItems: (contents.data as ImportedLibraryData).libraryItems!,
+        openLibraryMenu: true,
+      });
+    }
+  };
+
+  const updateScene = () => {
+    const sceneData = {
+      elements: restoreElements(
+        convertToAkumadrawElements([
+          {
+            type: "rectangle",
+            id: "rect-1",
+            fillStyle: "hachure",
+            strokeWidth: 1,
+            strokeStyle: "solid",
+            roughness: 1,
+            angle: 0,
+            x: 100.50390625,
+            y: 93.67578125,
+            strokeColor: "#c92a2a",
+            width: 186.47265625,
+            height: 141.9765625,
+            seed: 1968410350,
+            roundness: {
+              type: ROUNDNESS.ADAPTIVE_RADIUS,
+              value: 32,
+            },
+          },
+          {
+            type: "arrow",
+            x: 300,
+            y: 150,
+            start: { id: "rect-1" },
+            end: { type: "ellipse" },
+          },
+          {
+            type: "text",
+            x: 300,
+            y: 100,
+            text: "HELLO WORLD!",
+          },
+        ]),
+        null,
+      ),
+      appState: {
+        viewBackgroundColor: "#edf2ff",
+      },
+    };
+    akumadrawAPI?.updateScene(sceneData);
+  };
+
+  const onLinkOpen = useCallback(
+    (
+      element: NonDeletedAkumadrawElement,
+      event: CustomEvent<{
+        nativeEvent: MouseEvent | React.PointerEvent<HTMLCanvasElement>;
+      }>,
+    ) => {
+      const link = element.link!;
+      const { nativeEvent } = event.detail;
+      const isNewTab = nativeEvent.ctrlKey || nativeEvent.metaKey;
+      const isNewWindow = nativeEvent.shiftKey;
+      const isInternalLink =
+        link.startsWith("/") || link.includes(window.location.origin);
+      if (isInternalLink && !isNewTab && !isNewWindow) {
+        // signal that we're handling the redirect ourselves
+        event.preventDefault();
+        // do a custom redirect, such as passing to react-router
+        // ...
+      }
+    },
+    [],
+  );
+
+  const onCopy = async (type: "png" | "svg" | "json") => {
+    if (!akumadrawAPI) {
+      return false;
+    }
+    await exportToClipboard({
+      type,
+      data: {
+        elements: akumadrawAPI.getSceneElements(),
+        appState: akumadrawAPI.getAppState(),
+        files: akumadrawAPI.getFiles(),
+      },
+    });
+    window.alert(`Copied to clipboard as ${type} successfully`);
+  };
+
+  const [pointerData, setPointerData] = useState<{
+    pointer: { x: number; y: number };
+    button: "down" | "up";
+    pointersMap: Gesture["pointers"];
+  } | null>(null);
+
+  const onPointerDown = (
+    activeTool: AppState["activeTool"],
+    pointerDownState: AkumadrawPointerDownState,
+  ) => {
+    if (activeTool.type === "custom" && activeTool.customType === "comment") {
+      const { x, y } = pointerDownState.origin;
+      setComment({ x, y, value: "" });
+    }
+  };
+
+  const rerenderCommentIcons = () => {
+    if (!akumadrawAPI) {
+      return false;
+    }
+    const commentIconsElements = appRef.current.querySelectorAll(
+      ".comment-icon",
+    ) as HTMLElement[];
+    commentIconsElements.forEach((ele) => {
+      const id = ele.id;
+      const appstate = akumadrawAPI.getAppState();
+      const { x, y } = sceneCoordsToViewportCoords(
+        { sceneX: commentIcons[id].x, sceneY: commentIcons[id].y },
+        appstate,
+      );
+      ele.style.left = `${
+        x - COMMENT_ICON_DIMENSION / 2 - appstate!.offsetLeft
+      }px`;
+      ele.style.top = `${
+        y - COMMENT_ICON_DIMENSION / 2 - appstate!.offsetTop
+      }px`;
+    });
+  };
+
+  const onPointerMoveFromPointerDownHandler = (
+    pointerDownState: PointerDownState,
+  ) => {
+    return withBatchedUpdatesThrottled((event) => {
+      if (!akumadrawAPI) {
+        return false;
+      }
+      const { x, y } = viewportCoordsToSceneCoords(
+        {
+          clientX: event.clientX - pointerDownState.hitElementOffsets.x,
+          clientY: event.clientY - pointerDownState.hitElementOffsets.y,
+        },
+        akumadrawAPI.getAppState(),
+      );
+      setCommentIcons({
+        ...commentIcons,
+        [pointerDownState.hitElement.id!]: {
+          ...commentIcons[pointerDownState.hitElement.id!],
+          x,
+          y,
+        },
+      });
+    });
+  };
+  const onPointerUpFromPointerDownHandler = (
+    pointerDownState: PointerDownState,
+  ) => {
+    return withBatchedUpdates((event) => {
+      window.removeEventListener("pointermove", pointerDownState.onMove);
+      window.removeEventListener("pointerup", pointerDownState.onUp);
+      akumadrawAPI?.setActiveTool({ type: "selection" });
+      const distance = distance2d(
+        pointerDownState.x,
+        pointerDownState.y,
+        event.clientX,
+        event.clientY,
+      );
+      if (distance === 0) {
+        if (!comment) {
+          setComment({
+            x: pointerDownState.hitElement.x + 60,
+            y: pointerDownState.hitElement.y,
+            value: pointerDownState.hitElement.value,
+            id: pointerDownState.hitElement.id,
+          });
+        } else {
+          setComment(null);
+        }
+      }
+    });
+  };
+
+  const renderCommentIcons = () => {
+    return Object.values(commentIcons).map((commentIcon) => {
+      if (!akumadrawAPI) {
+        return false;
+      }
+      const appState = akumadrawAPI.getAppState();
+      const { x, y } = sceneCoordsToViewportCoords(
+        { sceneX: commentIcon.x, sceneY: commentIcon.y },
+        akumadrawAPI.getAppState(),
+      );
+      return (
+        <div
+          id={commentIcon.id}
+          key={commentIcon.id}
+          style={{
+            top: `${y - COMMENT_ICON_DIMENSION / 2 - appState!.offsetTop}px`,
+            left: `${x - COMMENT_ICON_DIMENSION / 2 - appState!.offsetLeft}px`,
+            position: "absolute",
+            zIndex: 1,
+            width: `${COMMENT_ICON_DIMENSION}px`,
+            height: `${COMMENT_ICON_DIMENSION}px`,
+            cursor: "pointer",
+            touchAction: "none",
+          }}
+          className="comment-icon"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            if (comment) {
+              commentIcon.value = comment.value;
+              saveComment();
+            }
+            const pointerDownState: any = {
+              x: event.clientX,
+              y: event.clientY,
+              hitElement: commentIcon,
+              hitElementOffsets: { x: event.clientX - x, y: event.clientY - y },
+            };
+            const onPointerMove =
+              onPointerMoveFromPointerDownHandler(pointerDownState);
+            const onPointerUp =
+              onPointerUpFromPointerDownHandler(pointerDownState);
+            window.addEventListener("pointermove", onPointerMove);
+            window.addEventListener("pointerup", onPointerUp);
+
+            pointerDownState.onMove = onPointerMove;
+            pointerDownState.onUp = onPointerUp;
+
+            akumadrawAPI?.setActiveTool({
+              type: "custom",
+              customType: "comment",
+            });
+          }}
+        >
+          <div className="comment-avatar">
+            <img src="images/doremon.png" alt="doremon" />
+          </div>
+        </div>
+      );
+    });
+  };
+
+  const saveComment = () => {
+    if (!comment) {
+      return;
+    }
+    if (!comment.id && !comment.value) {
+      setComment(null);
+      return;
+    }
+    const id = comment.id || nanoid();
+    setCommentIcons({
+      ...commentIcons,
+      [id]: {
+        x: comment.id ? comment.x - 60 : comment.x,
+        y: comment.y,
+        id,
+        value: comment.value,
+      },
+    });
+    setComment(null);
+  };
+
+  const renderComment = () => {
+    if (!comment) {
+      return null;
+    }
+    const appState = akumadrawAPI?.getAppState()!;
+    const { x, y } = sceneCoordsToViewportCoords(
+      { sceneX: comment.x, sceneY: comment.y },
+      appState,
+    );
+    let top = y - COMMENT_ICON_DIMENSION / 2 - appState.offsetTop;
+    let left = x - COMMENT_ICON_DIMENSION / 2 - appState.offsetLeft;
+
+    if (
+      top + COMMENT_INPUT_HEIGHT <
+      appState.offsetTop + COMMENT_INPUT_HEIGHT
+    ) {
+      top = COMMENT_ICON_DIMENSION / 2;
+    }
+    if (top + COMMENT_INPUT_HEIGHT > appState.height) {
+      top = appState.height - COMMENT_INPUT_HEIGHT - COMMENT_ICON_DIMENSION / 2;
+    }
+    if (
+      left + COMMENT_INPUT_WIDTH <
+      appState.offsetLeft + COMMENT_INPUT_WIDTH
+    ) {
+      left = COMMENT_ICON_DIMENSION / 2;
+    }
+    if (left + COMMENT_INPUT_WIDTH > appState.width) {
+      left = appState.width - COMMENT_INPUT_WIDTH - COMMENT_ICON_DIMENSION / 2;
+    }
+
+    return (
+      <textarea
+        className="comment"
+        style={{
+          top: `${top}px`,
+          left: `${left}px`,
+          position: "absolute",
+          zIndex: 1,
+          height: `${COMMENT_INPUT_HEIGHT}px`,
+          width: `${COMMENT_INPUT_WIDTH}px`,
+        }}
+        ref={(ref) => {
+          setTimeout(() => ref?.focus());
+        }}
+        placeholder={comment.value ? "Reply" : "Comment"}
+        value={comment.value}
+        onChange={(event) => {
+          setComment({ ...comment, value: event.target.value });
+        }}
+        onBlur={saveComment}
+        onKeyDown={(event) => {
+          if (!event.shiftKey && event.key === "Enter") {
+            event.preventDefault();
+            saveComment();
+          }
+        }}
+      />
+    );
+  };
+
+  const renderMenu = () => {
+    return (
+      <MainMenu>
+        <MainMenu.DefaultItems.SaveAsImage />
+        <MainMenu.DefaultItems.Export />
+        <MainMenu.Separator />
+        <MainMenu.DefaultItems.LiveCollaborationTrigger
+          isCollaborating={isCollaborating}
+          onSelect={() => window.alert("You clicked on collab button")}
+        />
+        <MainMenu.Group title="Akumadraw links">
+          <MainMenu.DefaultItems.Socials />
+        </MainMenu.Group>
+        <MainMenu.Separator />
+        <MainMenu.ItemCustom>
+          <button
+            style={{ height: "2rem" }}
+            onClick={() => window.alert("custom menu item")}
+          >
+            custom item
+          </button>
+        </MainMenu.ItemCustom>
+        <MainMenu.DefaultItems.Help />
+
+        {akumadrawAPI && (
+          <MobileFooter
+            akumadrawLib={akumadrawLib}
+            akumadrawAPI={akumadrawAPI}
+          />
+        )}
+      </MainMenu>
+    );
+  };
+
+  return (
+    <div className="App" ref={appRef}>
+      <h1>{appTitle}</h1>
+      {/* TODO fix type */}
+      <ExampleSidebar>
+        <div className="button-wrapper">
+          <button onClick={loadSceneOrLibrary}>Load Scene or Library</button>
+          <button className="update-scene" onClick={updateScene}>
+            Update Scene
+          </button>
+          <button
+            className="reset-scene"
+            onClick={() => {
+              akumadrawAPI?.resetScene();
+            }}
+          >
+            Reset Scene
+          </button>
+          <button
+            onClick={() => {
+              const libraryItems: LibraryItems = [
+                {
+                  status: "published",
+                  id: "1",
+                  created: 1,
+                  elements: initialData.libraryItems[1] as any,
+                },
+                {
+                  status: "unpublished",
+                  id: "2",
+                  created: 2,
+                  elements: initialData.libraryItems[1] as any,
+                },
+              ];
+              akumadrawAPI?.updateLibrary({
+                libraryItems,
+              });
+            }}
+          >
+            Update Library
+          </button>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={viewModeEnabled}
+              onChange={() => setViewModeEnabled(!viewModeEnabled)}
+            />
+            View mode
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={!interactive}
+              onChange={() => setInteractive(!interactive)}
+            />
+            Non-interactive
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={interactiveLinks}
+              onChange={() => setInteractiveLinks(!interactiveLinks)}
+            />
+            Links when non-interactive
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={interactiveEmbeds}
+              onChange={() => setInteractiveEmbeds(!interactiveEmbeds)}
+            />
+            Embeds when non-interactive
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={interactiveNavigation}
+              onChange={() => setInteractiveNavigation(!interactiveNavigation)}
+            />
+            Navigation when non-interactive
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={interactiveBrowserZoom}
+              onChange={() =>
+                setInteractiveBrowserZoom(!interactiveBrowserZoom)
+              }
+            />
+            Browser zoom when non-interactive
+          </label>
+          <label>
+            <input type="checkbox" checked={!ui} onChange={() => setUi(!ui)} />
+            Hide UI
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={zenModeEnabled}
+              onChange={() => setZenModeEnabled(!zenModeEnabled)}
+            />
+            Zen mode
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={gridModeEnabled}
+              onChange={() => setGridModeEnabled(!gridModeEnabled)}
+            />
+            Grid mode
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={renderScrollbars}
+              onChange={() => setRenderScrollbars(!renderScrollbars)}
+            />
+            Render scrollbars
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={theme === "dark"}
+              onChange={() => {
+                setTheme(theme === "light" ? "dark" : "light");
+              }}
+            />
+            Switch to Dark Theme
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={disableImageTool === true}
+              onChange={() => {
+                setDisableImageTool(!disableImageTool);
+              }}
+            />
+            Disable Image Tool
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={isCollaborating}
+              onChange={() => {
+                if (!isCollaborating) {
+                  const collaborators = new Map();
+                  collaborators.set("id1", {
+                    username: "Doremon",
+                    avatarUrl: "images/doremon.png",
+                  });
+                  collaborators.set("id3", {
+                    username: "Pika",
+                    avatarUrl: "images/pika.jpeg",
+                  });
+                  collaborators.set("id4", {
+                    username: "fallback",
+                    avatarUrl: "https://example.com",
+                  });
+                  akumadrawAPI?.updateScene({ collaborators });
+                } else {
+                  akumadrawAPI?.updateScene({
+                    collaborators: new Map(),
+                  });
+                }
+                setIsCollaborating(!isCollaborating);
+              }}
+            />
+            Show collaborators
+          </label>
+          <div>
+            <button onClick={onCopy.bind(null, "png")}>
+              Copy to Clipboard as PNG
+            </button>
+            <button onClick={onCopy.bind(null, "svg")}>
+              Copy to Clipboard as SVG
+            </button>
+            <button onClick={onCopy.bind(null, "json")}>
+              Copy to Clipboard as JSON
+            </button>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: "1em",
+              justifyContent: "center",
+              marginTop: "1em",
+            }}
+          >
+            <div>x: {pointerData?.pointer.x ?? 0}</div>
+            <div>y: {pointerData?.pointer.y ?? 0}</div>
+          </div>
+        </div>
+        <div className="akumadraw-wrapper">
+          {renderAkumadraw(children)}
+          {Object.keys(commentIcons || []).length > 0 && renderCommentIcons()}
+          {comment && renderComment()}
+        </div>
+
+        <div className="export-wrapper button-wrapper">
+          <label className="export-wrapper__checkbox">
+            <input
+              type="checkbox"
+              checked={exportWithDarkMode}
+              onChange={() => setExportWithDarkMode(!exportWithDarkMode)}
+            />
+            Export with dark mode
+          </label>
+          <label className="export-wrapper__checkbox">
+            <input
+              type="checkbox"
+              checked={exportEmbedScene}
+              onChange={() => setExportEmbedScene(!exportEmbedScene)}
+            />
+            Export with embed scene
+          </label>
+          <button
+            onClick={async () => {
+              if (!akumadrawAPI) {
+                return;
+              }
+              const svg = await exportScene({
+                type: "svg",
+                data: {
+                  elements: akumadrawAPI.getSceneElements(),
+                  appState: initialData.appState,
+                  files: akumadrawAPI.getFiles(),
+                },
+                config: { ...exportConfig, embedScene: exportEmbedScene },
+              });
+              appRef.current.querySelector(".export-svg").innerHTML =
+                svg.outerHTML;
+            }}
+          >
+            Export to SVG
+          </button>
+          <div className="export export-svg"></div>
+
+          <button
+            onClick={async () => {
+              if (!akumadrawAPI) {
+                return;
+              }
+              const blob = await exportScene({
+                type: "png",
+                data: {
+                  elements: akumadrawAPI.getSceneElements(),
+                  appState: initialData.appState,
+                  files: akumadrawAPI.getFiles(),
+                },
+                config: { ...exportConfig, embedScene: exportEmbedScene },
+              });
+              setBlobUrl(window.URL.createObjectURL(blob));
+            }}
+          >
+            Export to Blob
+          </button>
+          <div className="export export-blob">
+            <img src={blobUrl} alt="" />
+          </div>
+          <button
+            onClick={async () => {
+              if (!akumadrawAPI) {
+                return;
+              }
+              const canvas = await exportScene({
+                type: "canvas",
+                data: {
+                  elements: akumadrawAPI.getSceneElements(),
+                  appState: initialData.appState,
+                  files: akumadrawAPI.getFiles(),
+                },
+                config: exportConfig,
+              });
+              const ctx = canvas.getContext("2d")!;
+              ctx.font = "30px Excalifont";
+              ctx.strokeText("My custom text", 50, 60);
+              setCanvasUrl(canvas.toDataURL());
+            }}
+          >
+            Export to Canvas
+          </button>
+          <button
+            onClick={async () => {
+              if (!akumadrawAPI) {
+                return;
+              }
+              const canvas = await exportScene({
+                type: "canvas",
+                data: {
+                  elements: akumadrawAPI.getSceneElements(),
+                  appState: initialData.appState,
+                  files: akumadrawAPI.getFiles(),
+                },
+                config: exportConfig,
+              });
+              const ctx = canvas.getContext("2d")!;
+              ctx.font = "30px Excalifont";
+              ctx.strokeText("My custom text", 50, 60);
+              setCanvasUrl(canvas.toDataURL());
+            }}
+          >
+            Export to Canvas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!akumadrawAPI) {
+                return;
+              }
+
+              const elements = akumadrawAPI.getSceneElements();
+              akumadrawAPI.setViewport({
+                target: elements[0],
+                fit: "contain",
+              });
+            }}
+          >
+            Fit to viewport, first element
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!akumadrawAPI) {
+                return;
+              }
+
+              const elements = akumadrawAPI.getSceneElements();
+              akumadrawAPI.setViewport({
+                target: elements[0],
+                fit: "scale-down",
+              });
+            }}
+          >
+            Fit to content, first element
+          </button>
+          <div className="export export-canvas">
+            <img src={canvasUrl} alt="" />
+          </div>
+        </div>
+      </ExampleSidebar>
+    </div>
+  );
+}

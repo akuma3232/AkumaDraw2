@@ -1,0 +1,72 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "master": true,
+      "**": false
+    }
+  },
+  "outputDirectory": "build",
+  "installCommand": "yarn install",
+  "redirects": [
+    {
+      "source": "/docs/introduction/development",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/introduction/contributing",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/codebase/:path*",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@akumadraw/akumadraw/API/:path*",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@akumadraw/akumadraw/:path*",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@excalidraw/mermaid-to-excalidraw/installation",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@excalidraw/mermaid-to-excalidraw/api",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@excalidraw/mermaid-to-excalidraw/development",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@excalidraw/mermaid-to-excalidraw/codebase/new-diagram-type",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@excalidraw/mermaid-to-excalidraw/codebase/:path*",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/docs/@excalidraw/mermaid-to-excalidraw/:path*",
+      "destination": "",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "destination": "",
+      "permanent": true
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+files:
+  - source: /packages/akumadraw/locales/en.json
+    translation: /packages/akumadraw/locales/%locale%.json

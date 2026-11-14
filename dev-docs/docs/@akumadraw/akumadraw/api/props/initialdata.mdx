@@ -1,0 +1,55 @@
+# initialData
+
+<pre>
+&#123; elements?: <a href="">AkumadrawElement[]</a>, appState?: <a href="">AppState</a> &#125;
+</pre>
+
+This helps to load Akumadraw with `initialData`. It must be an object or a promise which resolves to an object containing the below optional fields.
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `elements` | [AkumadrawElement[]] | The `elements` with which `Akumadraw` should be mounted. |
+| `appState` | [AppState] | The `AppState` with which `Akumadraw` should be mounted. |
+| `scrollToContent` | `boolean` | This attribute indicates whether to `scroll` to the nearest element to center once `Akumadraw` is mounted. By default, it will not scroll the nearest element to the center. Make sure you pass `initialData.appState.scrollX` and `initialData.appState.scrollY` when `scrollToContent` is false so that scroll positions are retained |
+| `libraryItems` | [LibraryItems] &#124; Promise&lt;[LibraryItems]&gt; | This library items with which `Akumadraw` should be mounted. |
+| `files` | [BinaryFiles] | The `files` added to the scene. |
+
+You might want to use this when you want to load akumadraw with some initial elements and app state.
+
+```jsx live
+function App {
+  return (
+    <div style={{ height: "500px" }}>
+      <Akumadraw
+        initialData={{
+          elements: [
+            {
+              type: "rectangle",
+              version: 141,
+              versionNonce: 361174001,
+              isDeleted: false,
+              id: "oDVXy8D6rom3H1-LLH2-f",
+              fillStyle: "hachure",
+              strokeWidth: 1,
+              strokeStyle: "solid",
+              roughness: 1,
+              opacity: 100,
+              angle: 0,
+              x: 100.50390625,
+              y: 93.67578125,
+              strokeColor: "#000000",
+              backgroundColor: "transparent",
+              width: 186.47265625,
+              height: 141.9765625,
+              seed: 1968410350,
+              groupIds: [],
+            },
+          ],
+          appState: { zenModeEnabled: true, viewBackgroundColor: "#a5d8ff" },
+          scrollToContent: true
+        }}
+      />
+    </div>
+  );
+}
+```

@@ -1,0 +1,7 @@
+@use "../css/variables.module" as *;
+
+.akumadraw {
+  .Avatar {
+    @include avatarStyles;
+  }
+}

@@ -1,0 +1,54 @@
+# Adding a new Diagram Type
+
+To add a new diagram type to the parser you can follow the below steps :point_down:
+
+All the code for the parser resides in [`src`] folder and for playground resides in [`playground`] folder.
+
+lets run the playground server in local :point_down:
+
+```bash
+yarn start
+```
+
+This will start the playground server in port `1234` and open it in browser so  you start playing with the playground.
+
+## Update Supported Diagram Types
+
+First step is to add the new diagram type in [`SUPPORTED_DIAGRAM_TYPES`].
+
+Once this is done the new diagram type won't be rendered as an image but start throwing error since we don't support parsing the data yet.
+
+## Writing the Diagram Parser
+
+Once the diagram type is added in previous step. Next step is to write the parser to parse the mermaid diagram.
+
+For this create a file named `{{diagramType}}.ts` in [`src/parser`] and write a function `parseMermaid{{diagramType}}Diagram` similar to how we [`parseMermaidFlowChartDiagram`] for parsing flowchart diagram.
+
+The main aim of the parser is :point_down:
+
+1. Determine how elements are connected in the diagram and thus finding arrow and text bindings. 
+
+For this you might have to dig in to the parser `diagram.parser.yy` and which attributes to parse for the new diagram.
+
+2. Determine the position and dimensions of each element, for this would be using the `svg`
+
+Once the parser is ready, lets start using it. 
+
+Add the diagram type in switch case in [`parseMermaid`] and call the parser for the same.
+
+## Writing the Akumadraw Skeleton Convertor
+
+With the completion of previous step, we have all the data, now we need to transform it so to [AkumadrawElementSkeleton] format.
+
+Similar to [`FlowChartToAkumadrawSkeletonConverter`], you have to write the `{{diagramType}}ToAkumadrawSkeletonConverter` which parses the data received in previous step and returns the [AkumadrawElementSkeleton].
+
+Thats it, you have added the new diagram type 🥳, now lets test it out!
+
+## Updating the Playground
+
+1. Create a file named `{{diagramType}}.ts` in [`playround/testcases/`]. For reference you can check [`flowchart.ts`].
+
+2. Incase the new diagram type added is present in [`unsupported.ts`] then remove it from there.
+
+3. Verify if the test cases are running fine in playground.
+

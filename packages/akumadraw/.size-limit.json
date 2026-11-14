@@ -1,0 +1,16 @@
+[
+  {
+    "path": "dist/akumadraw.production.min.js",
+    "limit": "340 kB"
+  },
+  {
+    "path": "dist/akumadraw-assets/locales",
+    "name": "dist/akumadraw-assets/locales",
+    "limit": "290 kB"
+  },
+  {
+    "path": "dist/akumadraw-assets/vendor-*.js",
+    "name": "dist/akumadraw-assets/vendor*.js",
+    "limit": "900 kB"
+  }
+]
