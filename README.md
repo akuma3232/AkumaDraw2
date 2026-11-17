@@ -110,7 +110,7 @@ The monorepo is wired with **Yarn 1 workspaces**; the app resolves `@akumadraw/*
 
 ```bash
 # 1. clone
-git clone <your-repo-url> akumadraw
+git clone https://github.com/akuma3232/AkumaDraw2.git
 cd akumadraw
 
 # 2. install (from the repo root — installs every workspace)
